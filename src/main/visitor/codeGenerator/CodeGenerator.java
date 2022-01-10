@@ -21,6 +21,8 @@ public class  CodeGenerator extends Visitor<String> {
     ExpressionTypeChecker expressionTypeChecker = new ExpressionTypeChecker();
     private String outputPath;
     private FileWriter currentFile;
+    private boolean isMain;
+
 
     private void copyFile(String toBeCopied, String toBePasted) {
         try {
@@ -95,7 +97,6 @@ public class  CodeGenerator extends Visitor<String> {
     }
 
     private int slotOf(String identifier) {
-        //todo
         return 0;
     }
 
@@ -132,7 +133,6 @@ public class  CodeGenerator extends Visitor<String> {
 
     @Override
     public String visit(MainDeclaration mainDeclaration) {
-        //todo
         return null;
     }
 
@@ -155,8 +155,10 @@ public class  CodeGenerator extends Visitor<String> {
 
     @Override
     public String visit(BlockStmt blockStmt) {
-        //todo
-        return null;
+        StringBuilder command = new StringBuilder();
+        for (Statement stmt : blockStmt.getStatements())
+            command.append(stmt.accept(this)).append('\n');
+        return command.toString();
     }
 
     @Override
@@ -167,7 +169,7 @@ public class  CodeGenerator extends Visitor<String> {
 
     @Override
     public String visit(FunctionCallStmt functionCallStmt) {
-        //todo
+
         return null;
     }
 
@@ -188,8 +190,14 @@ public class  CodeGenerator extends Visitor<String> {
 
     @Override
     public String visit(ReturnStmt returnStmt) {
-        //todo
-        return null;
+        String command = "";
+        command += returnStmt.getReturnedExpr().accept(this);
+        Type returnType = returnStmt.getReturnedExpr().accept(expressionTypeChecker);
+        if (returnType instanceof VoidType)
+            command += "return\n";
+        else
+            command += "areturn\n";
+        return command;
     }
 
     @Override
@@ -241,8 +249,16 @@ public class  CodeGenerator extends Visitor<String> {
 
     @Override
     public String visit(ListAccessByIndex listAccessByIndex){
-        //todo
-        return null;
+        String commandList = listAccessByIndex.getInstance().accept(this);
+        String commandIndex = listAccessByIndex.getIndex().accept(this);
+
+        String command = "";
+        command += commandList;
+        command += commandIndex;
+        command += "invokevirtual java/lang/Integer/intValue()I\n";
+        command += "invokevirtual List/getElement(I)Ljava/lang/Object;\n";
+        command += "checkcast java/lang/Integer\n";
+        return command;
     }
 
     @Override
@@ -265,14 +281,21 @@ public class  CodeGenerator extends Visitor<String> {
 
     @Override
     public String visit(IntValue intValue) {
-        //todo
-        return null;
+        String command = "";
+        command += "ldc " + String.valueOf(intValue.getConstant()) + "\n";
+        command += "invokestatic java/lang/Integer/valueOf(I)Ljava/lang/Integer;\n";
+        return command;
     }
 
     @Override
     public String visit(BoolValue boolValue) {
-        //todo
-        return null;
+        String command = "";
+        if (boolValue.getConstant())
+            command += "ldc 1\n";
+        else
+            command += "ldc 0\n";
+        command += "invokestatic java/lang/Boolean/valueOf(Z)Ljava/lang/Boolean;\n";
+        return command;
     }
 
     @Override
