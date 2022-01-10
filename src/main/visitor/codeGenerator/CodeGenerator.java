@@ -23,6 +23,16 @@ public class  CodeGenerator extends Visitor<String> {
     private FileWriter currentFile;
     private boolean isMain;
 
+    private FileWriter mainFile;
+    private FunctionDeclaration curFuncDec;
+    private Set<String> visited;
+    private int labelIndex;
+
+
+    private int getFreshLabel()
+    {
+        return labelIndex++;
+    }
 
     private void copyFile(String toBeCopied, String toBePasted) {
         try {
@@ -131,9 +141,33 @@ public class  CodeGenerator extends Visitor<String> {
         return null;
     }
 
+    public String addMainInstance()
+    {
+        return """
+                new Main
+                dup
+                invokespecial Main/<init>()V
+                astore_1
+                """;
+    }
+
     @Override
     public String visit(MainDeclaration mainDeclaration) {
-        return null;
+        isMain = true;
+        String command = """
+                .method public static main([Ljava/lang/String;)V
+                  .limit stack 140
+                  .limit locals 140
+                """;
+        command += addMainInstance();
+        command += mainDeclaration.getBody().accept(this);
+
+        command += """
+                  return
+                .end method
+                """;
+        isMain = false;
+        return command;
     }
 
     @Override
