@@ -21,14 +21,15 @@ public class  CodeGenerator extends Visitor<String> {
     ExpressionTypeChecker expressionTypeChecker = new ExpressionTypeChecker();
     private String outputPath;
     private FileWriter currentFile;
+
     private boolean isMain;
+    private boolean isFunctioncallStmt;
 
     private FileWriter mainFile;
     private FunctionDeclaration curFuncDec;
     private Set<String> visited;
     private int labelIndex;
 
-    private boolean isFunctioncallStmt;
 
 
     private int getFreshLabel()
@@ -36,6 +37,7 @@ public class  CodeGenerator extends Visitor<String> {
         return labelIndex++;
     }
 
+    //Defined by TA.
     private void copyFile(String toBeCopied, String toBePasted) {
         try {
             File readingFile = new File(toBeCopied);
@@ -52,6 +54,7 @@ public class  CodeGenerator extends Visitor<String> {
         }
     }
 
+    //Defined by TA.
     private void prepareOutputFolder() {
         this.outputPath = "output/";
         String jasminPath = "utilities/jarFiles/jasmin.jar";
@@ -73,6 +76,7 @@ public class  CodeGenerator extends Visitor<String> {
         copyFile(fptrClassPath, this.outputPath + "Fptr.j");
     }
 
+    //Defined by TA.
     private void createFile(String name) {
         try {
             String path = this.outputPath + name + ".j";
@@ -83,6 +87,7 @@ public class  CodeGenerator extends Visitor<String> {
         }
     }
 
+    //Defined by TA.
     private void addCommand(String command) {
         try {
             command = String.join("\n\t\t", command.split("\n"));
@@ -98,6 +103,7 @@ public class  CodeGenerator extends Visitor<String> {
         }
     }
 
+    //Defined by TA.
     private void addStaticMainMethod() {
         addCommand(".method public static main([Ljava/lang/String;)V");
         addCommand(".limit stack 128");
@@ -112,6 +118,7 @@ public class  CodeGenerator extends Visitor<String> {
         return 0;
     }
 
+    //Defined by TA.
     @Override
     public String visit(Program program) {
         prepareOutputFolder();
@@ -238,6 +245,7 @@ public class  CodeGenerator extends Visitor<String> {
         return command;
     }
 
+    //Defined by TA.
     @Override
     public String visit(DisplayStmt displayStmt) {
         addCommand("getstatic java/lang/System/out Ljava/io/PrintStream;");
@@ -289,10 +297,144 @@ public class  CodeGenerator extends Visitor<String> {
         return null;
     }
 
+    public String getOperationCommand(BinaryOperator binOp) {
+        if (binOp.equals(BinaryOperator.add))
+            return "iadd\n";
+        if (binOp.equals(BinaryOperator.sub))
+            return "isub\n";
+        if (binOp.equals(BinaryOperator.mult))
+            return "imul\n";
+        if (binOp.equals(BinaryOperator.div))
+            return "idiv\n";
+        return null;
+    }
+
     @Override
     public String visit(BinaryExpression binaryExpression) {
-        //todo
-        return null;
+
+        String command = "";
+
+        String commandLeft = binaryExpression.getFirstOperand().accept(this);
+        String commandRight = binaryExpression.getSecondOperand().accept(this);
+
+
+        Type tl = binaryExpression.getFirstOperand().accept(expressionTypeChecker);
+        Type tr = binaryExpression.getSecondOperand().accept(expressionTypeChecker);
+
+        BinaryOperator operator = binaryExpression.getBinaryOperator();
+
+        if (operator.equals(BinaryOperator.add) ||
+                operator.equals(BinaryOperator.sub) ||
+                operator.equals(BinaryOperator.mult) ||
+                operator.equals(BinaryOperator.div)) {
+
+            command += commandLeft;
+            command += "invokevirtual java/lang/Integer/intValue()I\n";
+
+            command += commandRight;
+            command += "invokevirtual java/lang/Integer/intValue()I\n";
+
+            command += getOperationCommand(operator);
+            command += "invokestatic java/lang/Integer/valueOf(I)Ljava/lang/Integer;\n";
+        }
+
+        if (operator.equals(BinaryOperator.and) || operator.equals(BinaryOperator.or)) {
+
+            String elseLabel = "Label" + getFreshLabel();
+            String afterLabel = "Label" + getFreshLabel();
+
+            command += commandLeft;
+            command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
+
+            if (operator.equals(BinaryOperator.and))
+                command += "ifeq " + elseLabel + "\n";
+            else
+                command += "ifne " + elseLabel + "\n";
+
+            command += commandRight;
+            command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
+            command += "goto " + afterLabel + "\n";
+            command += elseLabel + ":\n";
+
+            command += "iconst_" + (operator.equals(BinaryOperator.or) ? "1" : "0") + "\n";
+
+            command += afterLabel + ":\n";
+            command += "invokestatic java/lang/Boolean/valueOf(Z)Ljava/lang/Boolean;\n";
+        }
+
+        if (operator.equals(BinaryOperator.lt) || operator.equals(BinaryOperator.gt))
+        {
+            String elseLabel = "Label" + getFreshLabel();
+            String afterLabel = "Label" + getFreshLabel();
+            String ifCommand = "";
+
+
+            command += commandLeft;
+            command += "invokevirtual java/lang/Integer/intValue()I\n";
+            command += commandRight;
+            command += "invokevirtual java/lang/Integer/intValue()I\n";
+
+            if (operator.equals(BinaryOperator.lt))
+                ifCommand = "if_icmpge";
+            else
+                ifCommand = "if_icmple";
+
+
+            command += ifCommand + " " + elseLabel + "\n";
+            command += "iconst_1\n";
+            command += "goto " + afterLabel + "\n";
+            command += elseLabel + ":\n";
+            command += "iconst_0\n";
+            command += afterLabel + ":\n";
+            command += "invokestatic java/lang/Boolean/valueOf(Z)Ljava/lang/Boolean;\n";
+        }
+
+        if (operator.equals(BinaryOperator.eq)) {
+            String elseLabel = "Label" + getFreshLabel();
+            String afterLabel = "Label" + getFreshLabel();
+            String ifCommand = "";
+
+            if (tl instanceof IntType)
+            {
+                command += commandLeft;
+                command += "invokevirtual java/lang/Integer/intValue()I\n";
+                command += commandRight;
+                command += "invokevirtual java/lang/Integer/intValue()I\n";
+
+                ifCommand = "if_icmpne";
+
+            }
+
+            if (tl instanceof BoolType)
+            {
+                command += commandLeft;
+                command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
+                command += commandRight;
+                command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
+
+                ifCommand = "if_icmpne";
+
+            }
+
+            if (tl instanceof ListType || tl instanceof FptrType)
+            {
+                command += commandLeft;
+                command += commandRight;
+
+                ifCommand = "if_acmpne";
+
+            }
+
+            command += ifCommand + " " + elseLabel + "\n";
+            command += "iconst_1\n";
+            command += "goto " + afterLabel + "\n";
+            command += elseLabel + ":\n";
+            command += "iconst_0\n";
+            command += afterLabel + ":\n";
+            command += "invokestatic java/lang/Boolean/valueOf(Z)Ljava/lang/Boolean;\n";
+        }
+
+        return command;
     }
 
     @Override
@@ -363,6 +505,7 @@ public class  CodeGenerator extends Visitor<String> {
         return command;
     }
 
+    //Defined by TA.
     @Override
     public String visit(ExprInPar exprInPar) {
         return exprInPar.getInputs().get(0).accept(this);
