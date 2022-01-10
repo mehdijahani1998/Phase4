@@ -12,29 +12,56 @@ import main.ast.types.*;
 import main.ast.types.primitives.*;
 import main.symbolTable.*;
 import main.symbolTable.exceptions.*;
+import main.symbolTable.items.FunctionSymbolTableItem;
+import main.symbolTable.items.StructSymbolTableItem;
 import main.visitor.Visitor;
 import main.visitor.type.ExpressionTypeChecker;
 import java.io.*;
 import java.util.*;
-
 public class  CodeGenerator extends Visitor<String> {
+
     ExpressionTypeChecker expressionTypeChecker = new ExpressionTypeChecker();
     private String outputPath;
     private FileWriter currentFile;
 
+    private ArrayList<String> slots;
+    private ArrayList<Integer> slotTypes;
     private boolean isMain;
     private boolean isFunctioncallStmt;
+    private boolean isConstruct;
 
     private FileWriter mainFile;
     private FunctionDeclaration curFuncDec;
     private Set<String> visited;
     private int labelIndex;
 
+    private FunctionSymbolTableItem currentFunction;
 
 
-    private int getFreshLabel()
-    {
+    private int getFreshLabel() {
         return labelIndex++;
+    }
+
+    public FunctionSymbolTableItem getFuncSymbolTableItem(String key) {
+        try {
+            return (FunctionSymbolTableItem) SymbolTable.root.getItem(key);
+        } catch (ItemNotFoundException ignored) {
+        }
+        return null;
+    }
+
+    public String getArgTypeSymbol(Type t) {
+        if (t instanceof IntType)
+            return "Ljava/lang/Integer;";
+        if (t instanceof BoolType)
+            return "Ljava/lang/Boolean;";
+        if (t instanceof ListType)
+            return "LList;";
+        if (t instanceof FptrType)
+            return "LFptr;";
+        if (t instanceof VoidType)
+            return "V";
+        return null;
     }
 
     //Defined by TA.
@@ -60,15 +87,14 @@ public class  CodeGenerator extends Visitor<String> {
         String jasminPath = "utilities/jarFiles/jasmin.jar";
         String listClassPath = "utilities/codeGenerationUtilityClasses/List.j";
         String fptrClassPath = "utilities/codeGenerationUtilityClasses/Fptr.j";
-        try{
+        try {
             File directory = new File(this.outputPath);
             File[] files = directory.listFiles();
-            if(files != null)
+            if (files != null)
                 for (File file : files)
                     file.delete();
             directory.mkdir();
-        }
-        catch(SecurityException e) {//unreachable
+        } catch (SecurityException e) {//unreachable
 
         }
         copyFile(jasminPath, this.outputPath + "jasmin.jar");
@@ -91,17 +117,17 @@ public class  CodeGenerator extends Visitor<String> {
     private void addCommand(String command) {
         try {
             command = String.join("\n\t\t", command.split("\n"));
-            if(command.startsWith("Label_"))
+            if (command.startsWith("Label_"))
                 this.currentFile.write("\t" + command + "\n");
-            else if(command.startsWith("."))
+            else if (command.startsWith("."))
                 this.currentFile.write(command + "\n");
             else
                 this.currentFile.write("\t\t" + command + "\n");
             this.currentFile.flush();
         } catch (IOException e) {//unreachable
-
         }
     }
+
 
     //Defined by TA.
     private void addStaticMainMethod() {
@@ -114,9 +140,24 @@ public class  CodeGenerator extends Visitor<String> {
         addCommand(".end method");
     }
 
+
     private int slotOf(String identifier) {
-        return 0;
+        if (identifier == "") {
+            return slots.size();
+        }
+        for (int i = 0; i < slots.size(); i++) {
+            if (slots.get(i) == identifier) {
+                return i;
+            }
+        }
+        return -1;
     }
+
+    private String slotType(String identifier) {
+        return slotTypes.get(slotOf(identifier)) ? "i" : "a";
+    }
+
+}
 
     //Defined by TA.
     @Override
@@ -139,44 +180,48 @@ public class  CodeGenerator extends Visitor<String> {
 
     @Override
     public String visit(StructDeclaration structDeclaration) {
+        try{
+            String structKey = StructSymbolTableItem.START_KEY + structDeclaration.getStructName().getName();
+            StructSymbolTableItem structSymbolTableItem = (StructSymbolTableItem)SymbolTable.root.getItem(structKey);
+            SymbolTable.push(structSymbolTableItem.getStructSymbolTable());
+        }catch (ItemNotFoundException e){//unreachable
+        }
         createFile(structDeclaration.getStructName().getName());
+
         //todo
+
+        SymbolTable.pop();
         return null;
     }
 
     @Override
     public String visit(FunctionDeclaration functionDeclaration) {
-        //todo
-        return null;
-    }
+        try{
+            String functionKey = FunctionSymbolTableItem.START_KEY + functionDeclaration.getFunctionName().getName();
+            FunctionSymbolTableItem functionSymbolTableItem = (FunctionSymbolTableItem)SymbolTable.root.getItem(functionKey);
+            SymbolTable.push(functionSymbolTableItem.getFunctionSymbolTable());
+        }catch (ItemNotFoundException e){//unreachable
+        }
 
-    public String addMainInstance()
-    {
-        return """
-                new Main
-                dup
-                invokespecial Main/<init>()V
-                astore_1
-                """;
+        //todo
+
+        SymbolTable.pop();
+        return null;
     }
 
     @Override
     public String visit(MainDeclaration mainDeclaration) {
-        isMain = true;
-        String command = """
-                .method public static main([Ljava/lang/String;)V
-                  .limit stack 140
-                  .limit locals 140
-                """;
-        command += addMainInstance();
-        command += mainDeclaration.getBody().accept(this);
+        try{
+            String functionKey = FunctionSymbolTableItem.START_KEY + "main";
+            FunctionSymbolTableItem functionSymbolTableItem = (FunctionSymbolTableItem)SymbolTable.root.getItem(functionKey);
+            SymbolTable.push(functionSymbolTableItem.getFunctionSymbolTable());
+        }catch (ItemNotFoundException e){//unreachable
+        }
 
-        command += """
-                  return
-                .end method
-                """;
-        isMain = false;
-        return command;
+        //todo
+
+        SymbolTable.pop();
+        return null;
     }
 
     @Override
@@ -185,6 +230,7 @@ public class  CodeGenerator extends Visitor<String> {
         return null;
     }
 
+    //Defined by TA.
     @Override
     public String visit(SetGetVarDeclaration setGetVarDeclaration) {
         return null;
@@ -437,6 +483,7 @@ public class  CodeGenerator extends Visitor<String> {
         return command;
     }
 
+    //Defined by TA.
     @Override
     public String visit(UnaryExpression unaryExpression){
         return null;
@@ -450,8 +497,20 @@ public class  CodeGenerator extends Visitor<String> {
 
     @Override
     public String visit(Identifier identifier){
-        //todo
-        return null;
+        FunctionSymbolTableItem fsti = getFuncSymbolTableItem("Function_" + identifier.getName());
+        String command = "";
+        if (fsti == null) { //Not a function name
+            int slot = slotOf(identifier.getName());
+            command = "aload " + slot + "\n";
+        }
+        else { //is a function name
+            command += "new Fptr\n" +
+                    "dup\n" +
+                    (isMain ? "aload_1\n" : "aload_0\n") +
+                    "ldc \"" + identifier.getName() + "\"\n" +
+                    "invokespecial Fptr/<init>(Ljava/lang/Object;Ljava/lang/String;)V\n";
+        }
+        return command;
     }
 
     @Override

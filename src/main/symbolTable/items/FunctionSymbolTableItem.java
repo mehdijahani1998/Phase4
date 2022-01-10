@@ -5,6 +5,7 @@ import main.ast.nodes.declaration.*;
 import main.ast.types.Type;
 import main.symbolTable.SymbolTable;
 
+
 import java.util.ArrayList;
 
 public class FunctionSymbolTableItem extends SymbolTableItem {
