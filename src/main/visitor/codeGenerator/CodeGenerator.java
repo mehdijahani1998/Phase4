@@ -195,10 +195,31 @@ public class  CodeGenerator extends Visitor<String> {
         return command.toString();
     }
 
+    public String dummyInstruction()
+    {
+        return """
+                iconst_0
+                pop
+                """;
+    }
+
     @Override
     public String visit(ConditionalStmt conditionalStmt) {
-        //todo
-        return null;
+        String elseLabel = "Label" + getFreshLabel();
+        String afterLabel = "Label" + getFreshLabel();
+        String command = "";
+        command += conditionalStmt.getCondition().accept(this);
+        command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
+        command += "ifeq " + elseLabel + "\n";
+        command += conditionalStmt.getThenBody().accept(this);
+        command += "goto " + afterLabel + "\n";
+        command += elseLabel + ":\n";
+        command += dummyInstruction();
+        if (conditionalStmt.getElseBody() != null)
+            command += conditionalStmt.getElseBody().accept(this);
+        command += afterLabel + ":\n";
+        command += dummyInstruction();
+        return command;
     }
 
     @Override
