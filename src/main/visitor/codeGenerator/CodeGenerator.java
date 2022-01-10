@@ -28,6 +28,8 @@ public class  CodeGenerator extends Visitor<String> {
     private Set<String> visited;
     private int labelIndex;
 
+    private boolean isFunctioncallStmt;
+
 
     private int getFreshLabel()
     {
@@ -224,8 +226,16 @@ public class  CodeGenerator extends Visitor<String> {
 
     @Override
     public String visit(FunctionCallStmt functionCallStmt) {
+        String command = "";
+        isFunctioncallStmt = true;
+        command += functionCallStmt.getFunctionCall().accept(this);
 
-        return null;
+        Type t = functionCallStmt.getFunctionCall().accept(expressionTypeChecker);
+        if (!(t instanceof VoidType))
+            command += "pop\n";
+
+        isFunctioncallStmt = false;
+        return command;
     }
 
     @Override
