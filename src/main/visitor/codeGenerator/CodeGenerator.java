@@ -203,7 +203,35 @@ public class  CodeGenerator extends Visitor<String> {
         }catch (ItemNotFoundException e){//unreachable
         }
 
-        //todo
+        String funcName = functionDeclaration.getFunctionName().getName();
+
+        String new_command = "";
+        new_command += ".method public " + funcName;
+
+        FunctionSymbolTableItem fsti = getFuncSymbolTableItem("Function_" + funcName);
+
+
+        ArrayList<Type> argTypeList = fsti.getArgTypes();
+
+        Type returnType = fsti.getReturnType();
+
+
+        StringBuilder argList = new StringBuilder("(");
+        for (Type t : argTypeList) {
+            argList.append(getArgTypeSymbol(t));
+        }
+
+        argList.append(")");
+        argList.append(getArgTypeSymbol(returnType));
+        new_command += argList.toString() + "\n";
+
+        new_command += ".limit stack 128\n";
+        new_command += ".limit locals 128\n";
+
+        new_command += functionDeclaration.getBody().accept(this);
+        new_command += ".end method\n";
+
+        addCommand(new_command);
 
         SymbolTable.pop();
         return null;
@@ -218,15 +246,24 @@ public class  CodeGenerator extends Visitor<String> {
         }catch (ItemNotFoundException e){//unreachable
         }
 
-        //todo
-
+        isMain = true;
+        addStaticMainMethod();
+        mainDeclaration.getBody().accept(this);
         SymbolTable.pop();
+        isMain = false;
+
         return null;
     }
 
+
     @Override
     public String visit(VariableDeclaration variableDeclaration) {
-        //todo
+    //    System.out.println("VariableDeclaration is visited");
+    //    if(currentStruct != null) {
+    //        addCommand(".field " + variableDeclaration.getVarName().getName() + " " + getSignatureString(variableDeclaration.getVarType()));
+    //    }
+    //    else
+    //        setInitValue(variableDeclaration, false);
         return null;
     }
 
