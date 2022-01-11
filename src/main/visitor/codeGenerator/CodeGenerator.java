@@ -244,10 +244,11 @@ public class  CodeGenerator extends Visitor<String> {
 
     @Override
     public String visit(BlockStmt blockStmt) {
-        StringBuilder command = new StringBuilder();
+        StringBuilder new_command = new StringBuilder();
         for (Statement stmt : blockStmt.getStatements())
-            command.append(stmt.accept(this)).append('\n');
-        return command.toString();
+            new_command.append(stmt.accept(this)).append('\n');
+        addCommand(new_command.toString());
+        return null;
     }
 
     public String dummyInstruction()
@@ -262,33 +263,37 @@ public class  CodeGenerator extends Visitor<String> {
     public String visit(ConditionalStmt conditionalStmt) {
         String elseLabel = "Label" + getFreshLabel();
         String afterLabel = "Label" + getFreshLabel();
-        String command = "";
-        command += conditionalStmt.getCondition().accept(this);
-        command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
-        command += "ifeq " + elseLabel + "\n";
-        command += conditionalStmt.getThenBody().accept(this);
-        command += "goto " + afterLabel + "\n";
-        command += elseLabel + ":\n";
-        command += dummyInstruction();
+        String new_command = "";
+        new_command += conditionalStmt.getCondition().accept(this);
+        new_command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
+        new_command += "ifeq " + elseLabel + "\n";
+        new_command += conditionalStmt.getThenBody().accept(this);
+        new_command += "goto " + afterLabel + "\n";
+        new_command += elseLabel + ":\n";
+        new_command += dummyInstruction();
         if (conditionalStmt.getElseBody() != null)
-            command += conditionalStmt.getElseBody().accept(this);
-        command += afterLabel + ":\n";
-        command += dummyInstruction();
-        return command;
+            new_command += conditionalStmt.getElseBody().accept(this);
+        new_command += afterLabel + ":\n";
+        new_command += dummyInstruction();
+        addCommand(new_command);
+
+        return null;
     }
 
     @Override
     public String visit(FunctionCallStmt functionCallStmt) {
-        String command = "";
+        String new_command = "";
         isFunctioncallStmt = true;
-        command += functionCallStmt.getFunctionCall().accept(this);
+        new_command += functionCallStmt.getFunctionCall().accept(this);
 
         Type t = functionCallStmt.getFunctionCall().accept(expressionTypeChecker);
         if (!(t instanceof VoidType))
-            command += "pop\n";
+            new_command += "pop\n";
 
         isFunctioncallStmt = false;
-        return command;
+        addCommand(new_command);
+
+        return null;
     }
 
     //Defined by TA.
@@ -309,14 +314,15 @@ public class  CodeGenerator extends Visitor<String> {
 
     @Override
     public String visit(ReturnStmt returnStmt) {
-        String command = "";
-        command += returnStmt.getReturnedExpr().accept(this);
+        String new_command = "";
+        new_command += returnStmt.getReturnedExpr().accept(this);
         Type returnType = returnStmt.getReturnedExpr().accept(expressionTypeChecker);
         if (returnType instanceof VoidType)
-            command += "return\n";
+            new_command += "return\n";
         else
-            command += "areturn\n";
-        return command;
+            new_command += "areturn\n";
+        addCommand(new_command);
+        return null;
     }
 
     @Override
@@ -358,7 +364,7 @@ public class  CodeGenerator extends Visitor<String> {
     @Override
     public String visit(BinaryExpression binaryExpression) {
 
-        String command = "";
+        String new_command = "";
 
         String commandLeft = binaryExpression.getFirstOperand().accept(this);
         String commandRight = binaryExpression.getSecondOperand().accept(this);
@@ -374,14 +380,14 @@ public class  CodeGenerator extends Visitor<String> {
                 operator.equals(BinaryOperator.mult) ||
                 operator.equals(BinaryOperator.div)) {
 
-            command += commandLeft;
-            command += "invokevirtual java/lang/Integer/intValue()I\n";
+            new_command += commandLeft;
+            new_command += "invokevirtual java/lang/Integer/intValue()I\n";
 
-            command += commandRight;
-            command += "invokevirtual java/lang/Integer/intValue()I\n";
+            new_command += commandRight;
+            new_command += "invokevirtual java/lang/Integer/intValue()I\n";
 
-            command += getOperationCommand(operator);
-            command += "invokestatic java/lang/Integer/valueOf(I)Ljava/lang/Integer;\n";
+            new_command += getOperationCommand(operator);
+            new_command += "invokestatic java/lang/Integer/valueOf(I)Ljava/lang/Integer;\n";
         }
 
         if (operator.equals(BinaryOperator.and) || operator.equals(BinaryOperator.or)) {
@@ -389,23 +395,23 @@ public class  CodeGenerator extends Visitor<String> {
             String elseLabel = "Label" + getFreshLabel();
             String afterLabel = "Label" + getFreshLabel();
 
-            command += commandLeft;
-            command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
+            new_command += commandLeft;
+            new_command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
 
             if (operator.equals(BinaryOperator.and))
-                command += "ifeq " + elseLabel + "\n";
+                new_command += "ifeq " + elseLabel + "\n";
             else
-                command += "ifne " + elseLabel + "\n";
+                new_command += "ifne " + elseLabel + "\n";
 
-            command += commandRight;
-            command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
-            command += "goto " + afterLabel + "\n";
-            command += elseLabel + ":\n";
+            new_command += commandRight;
+            new_command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
+            new_command += "goto " + afterLabel + "\n";
+            new_command += elseLabel + ":\n";
 
-            command += "iconst_" + (operator.equals(BinaryOperator.or) ? "1" : "0") + "\n";
+            new_command += "iconst_" + (operator.equals(BinaryOperator.or) ? "1" : "0") + "\n";
 
-            command += afterLabel + ":\n";
-            command += "invokestatic java/lang/Boolean/valueOf(Z)Ljava/lang/Boolean;\n";
+            new_command += afterLabel + ":\n";
+            new_command += "invokestatic java/lang/Boolean/valueOf(Z)Ljava/lang/Boolean;\n";
         }
 
         if (operator.equals(BinaryOperator.lt) || operator.equals(BinaryOperator.gt))
@@ -415,10 +421,10 @@ public class  CodeGenerator extends Visitor<String> {
             String ifCommand = "";
 
 
-            command += commandLeft;
-            command += "invokevirtual java/lang/Integer/intValue()I\n";
-            command += commandRight;
-            command += "invokevirtual java/lang/Integer/intValue()I\n";
+            new_command += commandLeft;
+            new_command += "invokevirtual java/lang/Integer/intValue()I\n";
+            new_command += commandRight;
+            new_command += "invokevirtual java/lang/Integer/intValue()I\n";
 
             if (operator.equals(BinaryOperator.lt))
                 ifCommand = "if_icmpge";
@@ -426,13 +432,13 @@ public class  CodeGenerator extends Visitor<String> {
                 ifCommand = "if_icmple";
 
 
-            command += ifCommand + " " + elseLabel + "\n";
-            command += "iconst_1\n";
-            command += "goto " + afterLabel + "\n";
-            command += elseLabel + ":\n";
-            command += "iconst_0\n";
-            command += afterLabel + ":\n";
-            command += "invokestatic java/lang/Boolean/valueOf(Z)Ljava/lang/Boolean;\n";
+            new_command += ifCommand + " " + elseLabel + "\n";
+            new_command += "iconst_1\n";
+            new_command += "goto " + afterLabel + "\n";
+            new_command += elseLabel + ":\n";
+            new_command += "iconst_0\n";
+            new_command += afterLabel + ":\n";
+            new_command += "invokestatic java/lang/Boolean/valueOf(Z)Ljava/lang/Boolean;\n";
         }
 
         if (operator.equals(BinaryOperator.eq)) {
@@ -442,10 +448,10 @@ public class  CodeGenerator extends Visitor<String> {
 
             if (tl instanceof IntType)
             {
-                command += commandLeft;
-                command += "invokevirtual java/lang/Integer/intValue()I\n";
-                command += commandRight;
-                command += "invokevirtual java/lang/Integer/intValue()I\n";
+                new_command += commandLeft;
+                new_command += "invokevirtual java/lang/Integer/intValue()I\n";
+                new_command += commandRight;
+                new_command += "invokevirtual java/lang/Integer/intValue()I\n";
 
                 ifCommand = "if_icmpne";
 
@@ -453,10 +459,10 @@ public class  CodeGenerator extends Visitor<String> {
 
             if (tl instanceof BoolType)
             {
-                command += commandLeft;
-                command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
-                command += commandRight;
-                command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
+                new_command += commandLeft;
+                new_command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
+                new_command += commandRight;
+                new_command += "invokevirtual java/lang/Boolean/booleanValue()Z\n";
 
                 ifCommand = "if_icmpne";
 
@@ -464,23 +470,25 @@ public class  CodeGenerator extends Visitor<String> {
 
             if (tl instanceof ListType || tl instanceof FptrType)
             {
-                command += commandLeft;
-                command += commandRight;
+                new_command += commandLeft;
+                new_command += commandRight;
 
                 ifCommand = "if_acmpne";
 
             }
 
-            command += ifCommand + " " + elseLabel + "\n";
-            command += "iconst_1\n";
-            command += "goto " + afterLabel + "\n";
-            command += elseLabel + ":\n";
-            command += "iconst_0\n";
-            command += afterLabel + ":\n";
-            command += "invokestatic java/lang/Boolean/valueOf(Z)Ljava/lang/Boolean;\n";
+            new_command += ifCommand + " " + elseLabel + "\n";
+            new_command += "iconst_1\n";
+            new_command += "goto " + afterLabel + "\n";
+            new_command += elseLabel + ":\n";
+            new_command += "iconst_0\n";
+            new_command += afterLabel + ":\n";
+            new_command += "invokestatic java/lang/Boolean/valueOf(Z)Ljava/lang/Boolean;\n";
         }
 
-        return command;
+        addCommand(new_command);
+
+        return null;
     }
 
     //Defined by TA.
@@ -498,19 +506,21 @@ public class  CodeGenerator extends Visitor<String> {
     @Override
     public String visit(Identifier identifier){
         FunctionSymbolTableItem fsti = getFuncSymbolTableItem("Function_" + identifier.getName());
-        String command = "";
+        String new_command = "";
         if (fsti == null) { //Not a function name
             int slot = slotOf(identifier.getName());
-            command = "aload " + slot + "\n";
+            new_command = "aload " + slot + "\n";
         }
         else { //is a function name
-            command += "new Fptr\n" +
+            new_command += "new Fptr\n" +
                     "dup\n" +
                     (isMain ? "aload_1\n" : "aload_0\n") +
                     "ldc \"" + identifier.getName() + "\"\n" +
                     "invokespecial Fptr/<init>(Ljava/lang/Object;Ljava/lang/String;)V\n";
         }
-        return command;
+        addCommand(new_command);
+
+        return null;
     }
 
     @Override
@@ -518,13 +528,15 @@ public class  CodeGenerator extends Visitor<String> {
         String commandList = listAccessByIndex.getInstance().accept(this);
         String commandIndex = listAccessByIndex.getIndex().accept(this);
 
-        String command = "";
-        command += commandList;
-        command += commandIndex;
-        command += "invokevirtual java/lang/Integer/intValue()I\n";
-        command += "invokevirtual List/getElement(I)Ljava/lang/Object;\n";
-        command += "checkcast java/lang/Integer\n";
-        return command;
+        String new_command = "";
+        new_command += commandList;
+        new_command += commandIndex;
+        new_command += "invokevirtual java/lang/Integer/intValue()I\n";
+        new_command += "invokevirtual List/getElement(I)Ljava/lang/Object;\n";
+        new_command += "checkcast java/lang/Integer\n";
+        addCommand(new_command);
+
+        return null;
     }
 
     public String getTypeCastString(Type type) {
@@ -553,7 +565,9 @@ public class  CodeGenerator extends Visitor<String> {
 
     @Override
     public String visit(FunctionCall functionCall){
+
         ArrayList<String> argByteCodes = new ArrayList<>();
+
         for (Expression expression : functionCall.getArgs()) {
             String bc = expression.accept(this);
             Type type = expression.accept(expressionTypeChecker);
@@ -566,23 +580,23 @@ public class  CodeGenerator extends Visitor<String> {
             argByteCodes.add(bc);
         }
 
-        String command = "";
-        command += functionCall.getInstance().accept(this);
+        String new_command = "";
+        new_command += functionCall.getInstance().accept(this);
 
-        command += """
+        new_command += """
                 new java/util/ArrayList
                 dup
                 invokespecial java/util/ArrayList/<init>()V
                 """;
 
         for (String bc: argByteCodes) {
-            command += "dup\n";
-            command += bc;
-            command += "invokevirtual java/util/ArrayList/add(Ljava/lang/Object;)Z\n";
-            command += "pop\n";
+            new_command += "dup\n";
+            new_command += bc;
+            new_command += "invokevirtual java/util/ArrayList/add(Ljava/lang/Object;)Z\n";
+            new_command += "pop\n";
         }
 
-        command += "invokevirtual Fptr/invoke(Ljava/util/ArrayList;)Ljava/lang/Object;\n";
+        new_command += "invokevirtual Fptr/invoke(Ljava/util/ArrayList;)Ljava/lang/Object;\n";
 
 
         /*After function call is executed, stack top
@@ -591,20 +605,24 @@ public class  CodeGenerator extends Visitor<String> {
             uses of this value
          */
         Type returnType = functionCall.accept(expressionTypeChecker);
-        command += getTypeCastString(returnType);
+        new_command += getTypeCastString(returnType);
 
 
-        return command;
+        addCommand(new_command);
+
+        return null;
     }
 
     @Override
     public String visit(ListSize listSize){
         String commandList = listSize.getArg().accept(this);
-        String command = "";
-        command += commandList;
-        command += "invokevirtual List/getSize()I\n";
-        command += "invokestatic java/lang/Integer/valueOf(I)Ljava/lang/Integer;\n";
-        return command;
+        String new_command = "";
+        new_command += commandList;
+        new_command += "invokevirtual List/getSize()I\n";
+        new_command += "invokestatic java/lang/Integer/valueOf(I)Ljava/lang/Integer;\n";
+        addCommand(new_command);
+
+        return null;
     }
 
     @Override
@@ -615,21 +633,24 @@ public class  CodeGenerator extends Visitor<String> {
 
     @Override
     public String visit(IntValue intValue) {
-        String command = "";
-        command += "ldc " + String.valueOf(intValue.getConstant()) + "\n";
-        command += "invokestatic java/lang/Integer/valueOf(I)Ljava/lang/Integer;\n";
-        return command;
+        String new_command = "";
+        new_command += "ldc " + String.valueOf(intValue.getConstant()) + "\n";
+        new_command += "invokestatic java/lang/Integer/valueOf(I)Ljava/lang/Integer;\n";
+        addCommand(new_command);
+        return null;
     }
 
     @Override
     public String visit(BoolValue boolValue) {
-        String command = "";
+        String new_command = "";
         if (boolValue.getConstant())
-            command += "ldc 1\n";
+            new_command += "ldc 1\n";
         else
-            command += "ldc 0\n";
-        command += "invokestatic java/lang/Boolean/valueOf(Z)Ljava/lang/Boolean;\n";
-        return command;
+            new_command += "ldc 0\n";
+        new_command += "invokestatic java/lang/Boolean/valueOf(Z)Ljava/lang/Boolean;\n";
+        addCommand(new_command);
+
+        return null;
     }
 
     //Defined by TA.
