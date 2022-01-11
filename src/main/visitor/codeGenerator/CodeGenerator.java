@@ -275,7 +275,9 @@ public class  CodeGenerator extends Visitor<String> {
 
     @Override
     public String visit(AssignmentStmt assignmentStmt) {
-        //todo
+        BinaryExpression binaryExpression = new BinaryExpression(assignmentStmt.getLValue(),
+                assignmentStmt.getRValue(),BinaryOperator.eq);
+        binaryExpression.accept(this);
         return null;
     }
 
