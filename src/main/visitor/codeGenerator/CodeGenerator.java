@@ -154,10 +154,10 @@ public class  CodeGenerator extends Visitor<String> {
     }
 
     private String slotType(String identifier) {
-        return slotTypes.get(slotOf(identifier)) ? "i" : "a";
+        return slotTypes.get(slotOf(identifier)) == 1 ? "i" : "a";
     }
 
-}
+
 
     //Defined by TA.
     @Override
@@ -527,16 +527,84 @@ public class  CodeGenerator extends Visitor<String> {
         return command;
     }
 
+    public String getTypeCastString(Type type) {
+        if (type instanceof VoidType) {
+            return "\n";
+        }
+
+        if (type instanceof IntType) {
+            return "checkcast java/lang/Integer\n";
+        }
+
+        if (type instanceof BoolType) {
+            return "checkcast java/lang/Boolean\n";
+        }
+
+        if (type instanceof ListType) {
+            return "checkcast List\n";
+        }
+
+        if (type instanceof FptrType) {
+            return "checkcast Fptr\n";
+        }
+
+        return "\n";
+    }
+
     @Override
     public String visit(FunctionCall functionCall){
-        //todo
-        return null;
+        ArrayList<String> argByteCodes = new ArrayList<>();
+        for (Expression expression : functionCall.getArgs()) {
+            String bc = expression.accept(this);
+            Type type = expression.accept(expressionTypeChecker);
+            if (type instanceof ListType) {
+                bc = "new List\n" +
+                        "dup\n" +
+                        bc +
+                        "invokespecial List/<init>(LList;)V\n";
+            }
+            argByteCodes.add(bc);
+        }
+
+        String command = "";
+        command += functionCall.getInstance().accept(this);
+
+        command += """
+                new java/util/ArrayList
+                dup
+                invokespecial java/util/ArrayList/<init>()V
+                """;
+
+        for (String bc: argByteCodes) {
+            command += "dup\n";
+            command += bc;
+            command += "invokevirtual java/util/ArrayList/add(Ljava/lang/Object;)Z\n";
+            command += "pop\n";
+        }
+
+        command += "invokevirtual Fptr/invoke(Ljava/util/ArrayList;)Ljava/lang/Object;\n";
+
+
+        /*After function call is executed, stack top
+            is an object of type Object; an appropriate type-
+            casting must be performed to avoid errors in future
+            uses of this value
+         */
+        Type returnType = functionCall.accept(expressionTypeChecker);
+        command += getTypeCastString(returnType);
+
+
+        return command;
     }
 
     @Override
     public String visit(ListSize listSize){
-        //todo
-        return null;
+        String commandList = listSize.getArg().accept(this);
+        String command = "";
+        command += commandList;
+        command += "invokevirtual List/getSize()I\n";
+        command += "invokestatic java/lang/Integer/valueOf(I)Ljava/lang/Integer;\n";
+        return command;
     }
 
     @Override
